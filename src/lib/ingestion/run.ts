@@ -148,34 +148,83 @@ async function upsertBenchmarkScores(
   );
 }
 
+type AdapterResult = { adapter: string; ok: boolean; error?: string };
+
 async function main() {
+  const results: AdapterResult[] = [];
+
   // 1. Seed benchmark definitions
   console.log("--- Seeding benchmarks ---");
   await seedBenchmarks();
 
   // 2. OpenRouter: models + pricing
   console.log("\n--- OpenRouter ingestion ---");
-  console.log("Fetching models from OpenRouter...");
-  const models = await fetchOpenRouterModels();
-  console.log(`Received ${models.length} models from OpenRouter.`);
-  await upsertModels(models);
+  try {
+    console.log("Fetching models from OpenRouter...");
+    const models = await fetchOpenRouterModels();
+    console.log(`Received ${models.length} models from OpenRouter.`);
+    await upsertModels(models);
+    results.push({ adapter: "openrouter", ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("OpenRouter adapter failed:", msg);
+    results.push({ adapter: "openrouter", ok: false, error: msg });
+  }
 
   // 3. HuggingFace: benchmark scores
   console.log("\n--- HuggingFace ingestion ---");
-  const hfScores = await scrapeHuggingFace();
-  await upsertBenchmarkScores(hfScores);
+  try {
+    const hfScores = await scrapeHuggingFace();
+    await upsertBenchmarkScores(hfScores);
+    results.push({ adapter: "huggingface", ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("HuggingFace adapter failed:", msg);
+    results.push({ adapter: "huggingface", ok: false, error: msg });
+  }
 
   // 4. SWE-bench Verified: resolve rates
   console.log("\n--- SWE-bench ingestion ---");
-  const sweScores = await scrapeSweBench();
-  await upsertBenchmarkScores(sweScores);
+  try {
+    const sweScores = await scrapeSweBench();
+    await upsertBenchmarkScores(sweScores);
+    results.push({ adapter: "swebench", ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("SWE-bench adapter failed:", msg);
+    results.push({ adapter: "swebench", ok: false, error: msg });
+  }
 
   // 5. LMSYS Chatbot Arena: Elo scores
   console.log("\n--- LMSYS ingestion ---");
-  const lmsysScores = await scrapeLmsys();
-  await upsertBenchmarkScores(lmsysScores);
+  try {
+    const lmsysScores = await scrapeLmsys();
+    await upsertBenchmarkScores(lmsysScores);
+    results.push({ adapter: "lmsys", ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("LMSYS adapter failed:", msg);
+    results.push({ adapter: "lmsys", ok: false, error: msg });
+  }
 
-  console.log("\nIngestion complete.");
+  // Summary
+  const succeeded = results.filter((r) => r.ok);
+  const failed = results.filter((r) => !r.ok);
+
+  console.log("\n=== Ingestion Summary ===");
+  console.log(`${succeeded.length}/${results.length} adapters succeeded.`);
+  if (failed.length > 0) {
+    console.log("Failed adapters:");
+    for (const f of failed) {
+      console.log(`  - ${f.adapter}: ${f.error}`);
+    }
+  }
+  console.log("========================\n");
+
+  // Exit 0 if at least one adapter succeeded, 1 only if all failed
+  if (succeeded.length === 0 && results.length > 0) {
+    process.exit(1);
+  }
 }
 
 main()
