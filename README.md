@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ModelIndex — AI Model Benchmark Hub
+
+Data-dense comparison and benchmarking platform for AI models. Compare performance, cost, and capabilities across 360+ frontier models.
+
+**Live:** [modelindex.netlify.app](https://modelindex.netlify.app/)
+
+## Features
+
+- **Model Directory** — Sortable, filterable table of 366 models with fuzzy search, parameter-class filtering, and compare toggles
+- **Model Detail** — Radar charts, cost-efficiency scatter plots, specification grids, and benchmark score cards for each model
+- **Compare Matrix** — Side-by-side comparison of up to 4 models across all tracked benchmarks and pricing
+- **Automated Ingestion** — Daily data pipeline pulling from OpenRouter, HuggingFace, LMSYS Arena, and SWE-bench via GitHub Actions
+- **Benchmark Leaderboards** — Elo, MMLU, MATH, SWE-bench, IFEval, GPQA with category-average baselines
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Database | PostgreSQL (Supabase) + Prisma ORM |
+| Charts | Recharts |
+| Search | Fuse.js (fuzzy, server-side) |
+| CI/CD | GitHub Actions (daily cron) |
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Generate Prisma client
+npx prisma generate
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env` file in the project root:
 
-## Learn More
+```env
+DATABASE_URL="postgresql://..."       # Supabase connection pooler URL
+DIRECT_URL="postgresql://..."         # Supabase direct connection URL
+OPENROUTER_API_KEY="sk-or-..."        # For data ingestion (optional, CI only)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+  app/                    # Next.js App Router pages
+    models/[...slug]/     # Model detail (radar, scatter, specs)
+    compare/              # Side-by-side comparison matrix
+    actions/              # Server actions (search)
+  components/
+    ui/                   # shadcn/ui primitives
+    domain/               # Domain components (MasterGrid, ModelDetail, CostScatter, etc.)
+  hooks/                  # React context providers (compare selection)
+  lib/
+    ingestion/            # Data pipeline adapters (OpenRouter, HuggingFace, LMSYS, SWE-bench)
+    prisma.ts             # Prisma client singleton
+    utils.ts              # cn() utility
+  types/                  # Shared TypeScript interfaces
+prisma/
+  schema.prisma           # Database schema
+  migrations/             # Prisma migrations
+.github/workflows/
+  ingestion.yml           # Daily data ingestion cron
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Data Pipeline
 
-## Deploy on Vercel
+The ingestion pipeline runs daily at 06:00 UTC via GitHub Actions:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Run manually
+npx tsx src/lib/ingestion/run.ts
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Adapters:**
+- **OpenRouter** — 350+ models with pricing, descriptions, and release dates
+- **HuggingFace** — Open LLM Leaderboard scores (IFEval, GPQA, MMLU-PRO, MATH)
+- **LMSYS** — Chatbot Arena Elo ratings
+- **SWE-bench** — Software engineering benchmark scores
+
+## Scripts
+
+```bash
+npm run dev              # Dev server (Turbopack)
+npm run build            # Production build
+npm run lint             # ESLint
+npx tsx src/lib/ingestion/run.ts           # Full ingestion pipeline
+npx tsx src/lib/ingestion/verify.ts        # Orphan model detection
+```
+
+## License
+
+MIT
