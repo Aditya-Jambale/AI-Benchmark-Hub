@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Provider {
+  id     String  @id @default(uuid()) @db.Uuid
+  slug   String  @unique
+  name   String
+  models Model[]
+}
+
+model Model {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  name          String
+  providerId    String   @db.Uuid
+  parameters    Float?   // Stored in billions. Null means proprietary.
+  contextWindow Int
+  architecture  String?  // e.g., "Dense", "MoE"
+  license       String?  // e.g., "MIT", "Proprietary"
+  releaseDate   DateTime?
+  summary       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  provider Provider            @relation(fields: [providerId], references: [id])
+  pricing  Pricing?
+  scores   ModelBenchmarkScore[]
+
+  @@index([providerId])
+}
+
+model Pricing {
+  id          String @id @default(uuid()) @db.Uuid
+  modelId     String @unique @db.Uuid
+  inputCost   Float  // Cost per 1 Million tokens
+  outputCost  Float  // Cost per 1 Million tokens
+
+  model Model @relation(fields: [modelId], references: [id])
+}
+
+model Benchmark {
+  id         String               @id @default(uuid()) @db.Uuid
+  slug       String               @unique
+  name       String               // e.g., "MMLU (5-shot)"
+  metricType String               // e.g., "percentage", "elo", "pass@1"
+
+  scores ModelBenchmarkScore[]
+}
+
+model ModelBenchmarkScore {
+  id           String   @id @default(uuid()) @db.Uuid
+  modelId      String   @db.Uuid
+  benchmarkId  String   @db.Uuid
+  score        Float
+  dateRecorded DateTime @default(now())
+
+  model     Model     @relation(fields: [modelId], references: [id])
+  benchmark Benchmark @relation(fields: [benchmarkId], references: [id])
+
+  @@unique([modelId, benchmarkId])
+  @@index([modelId])
+  @@index([benchmarkId])
+}
